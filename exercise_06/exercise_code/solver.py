@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from exercise_code.networks.optimizer import Adam
 from exercise_code.networks import CrossEntropyFromLogits
@@ -27,10 +28,19 @@ class Solver(object):
     each epoch.
     """
 
-    def __init__(self, model, train_dataloader, val_dataloader,
-                 loss_func=CrossEntropyFromLogits, learning_rate=1e-3,
-                 optimizer=Adam, verbose=True, print_every=1, lr_decay = 1.0,
-                 **kwargs):
+    def __init__(
+        self,
+        model,
+        train_dataloader,
+        val_dataloader,
+        loss_func=CrossEntropyFromLogits,
+        learning_rate=1e-3,
+        optimizer=Adam,
+        verbose=True,
+        print_every=1,
+        lr_decay=1.0,
+        **kwargs
+    ):
         """
         Construct a new Solver instance.
 
@@ -63,7 +73,7 @@ class Solver(object):
 
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
-        
+
         self.current_patience = 0
 
         self._reset()
@@ -123,7 +133,7 @@ class Solver(object):
 
         return loss
 
-    def train(self, epochs=100, patience = None):
+    def train(self, epochs=100, patience=None):
         """
         Run optimization to train the model.
         """
@@ -136,8 +146,8 @@ class Solver(object):
 
             for batch in self.train_dataloader:
                 # Unpack data
-                X = batch['image']
-                y = batch['label']
+                X = batch["image"]
+                y = batch["label"]
 
                 # Update the model parameters.
                 validate = False
@@ -148,17 +158,15 @@ class Solver(object):
 
             train_epoch_loss /= len(self.train_dataloader)
 
-            
             self.opt.lr *= self.lr_decay
-            
-            
+
             # Iterate over all validation samples
             val_epoch_loss = 0.0
 
             for batch in self.val_dataloader:
                 # Unpack data
-                X = batch['image']
-                y = batch['label']
+                X = batch["image"]
+                y = batch["label"]
 
                 # Compute Loss - no param update at validation time!
                 val_loss = self._step(X, y, validation=True)
@@ -172,8 +180,10 @@ class Solver(object):
             self.val_loss_history.append(val_epoch_loss)
 
             if self.verbose and t % self.print_every == 0:
-                print('(Epoch %d / %d) train loss: %f; val loss: %f' % (
-                    t + 1, epochs, train_epoch_loss, val_epoch_loss))
+                print(
+                    "(Epoch %d / %d) train loss: %f; val loss: %f"
+                    % (t + 1, epochs, train_epoch_loss, val_epoch_loss)
+                )
 
             # Keep track of the best model
             self.update_best_loss(val_epoch_loss, train_epoch_loss)
@@ -188,8 +198,8 @@ class Solver(object):
         correct = 0
         total = 0
         for batch in loader:
-            X = batch['image']
-            y = batch['label']
+            X = batch["image"]
+            y = batch["label"]
             y_pred = self.model.forward(X)
             label_pred = np.argmax(y_pred, axis=1)
             correct += sum(label_pred == y)
@@ -202,8 +212,8 @@ class Solver(object):
     def update_best_loss(self, val_loss, train_loss):
         # Update the model and best loss if we see improvements.
         if not self.best_model_stats or val_loss < self.best_model_stats["val_loss"]:
-            self.best_model_stats = {"val_loss":val_loss, "train_loss":train_loss}
-            self.best_params = self.model.params
+            self.best_model_stats = {"val_loss": val_loss, "train_loss": train_loss}
+            self.best_params = copy.deepcopy(self.model.params)
             self.current_patience = 0
         else:
             self.current_patience += 1

@@ -2,24 +2,39 @@ import numpy as np
 import os
 import pickle
 
-from exercise_code.networks.layer import affine_forward, affine_backward, Sigmoid, Tanh, LeakyRelu, Relu
+from exercise_code.networks.layer import (
+    affine_forward,
+    affine_backward,
+    Sigmoid,
+    Tanh,
+    LeakyRelu,
+    Relu,
+)
 from exercise_code.networks.base_networks import Network
 
 
 class ClassificationNet(Network):
     """
-    A fully-connected classification neural network with configurable 
+    A fully-connected classification neural network with configurable
     activation function, number of layers, number of classes, hidden size and
-    regularization strength. 
+    regularization strength.
     """
 
-    def __init__(self, activation=Sigmoid, num_layer=2,
-                 input_size=3 * 32 * 32, hidden_size=100,
-                 std=1e-3, num_classes=10, reg=0, **kwargs):
+    def __init__(
+        self,
+        activation=Sigmoid,
+        num_layer=2,
+        input_size=3 * 32 * 32,
+        hidden_size=100,
+        std=1e-3,
+        num_classes=10,
+        reg=0,
+        **kwargs,
+    ):
         """
         :param activation: choice of activation function. It should implement
             a forward() and a backward() method.
-        :param num_layer: integer, number of layers. 
+        :param num_layer: integer, number of layers.
         :param input_size: integer, the dimension D of the input data.
         :param hidden_size: integer, the number of neurons H in the hidden layer.
         :param std: float, standard deviation used for weight initialization.
@@ -60,7 +75,7 @@ class ClassificationNet(Network):
         X = X.reshape(X.shape[0], -1)
         # Unpack variables from the params dictionary
         for i in range(self.num_layer - 1):
-            W, b = self.params['W' + str(i + 1)], self.params['b' + str(i + 1)]
+            W, b = self.params["W" + str(i + 1)], self.params["b" + str(i + 1)]
 
             # Forward i_th layer
             X, cache_affine = affine_forward(X, W, b)
@@ -71,14 +86,16 @@ class ClassificationNet(Network):
             self.cache["sigmoid" + str(i + 1)] = cache_sigmoid
 
             # Store the reg for the current W
-            self.reg['W' + str(i + 1)] = np.sum(W ** 2) * self.reg_strength
+            self.reg["W" + str(i + 1)] = np.sum(W**2) * self.reg_strength
 
         # last layer contains no activation functions
-        W, b = self.params['W' + str(self.num_layer)],\
-               self.params['b' + str(self.num_layer)]
+        W, b = (
+            self.params["W" + str(self.num_layer)],
+            self.params["b" + str(self.num_layer)],
+        )
         y, cache_affine = affine_forward(X, W, b)
         self.cache["affine" + str(self.num_layer)] = cache_affine
-        self.reg['W' + str(self.num_layer)] = np.sum(W ** 2) * self.reg_strength
+        self.reg["W" + str(self.num_layer)] = np.sum(W**2) * self.reg_strength
 
         return y
 
@@ -91,17 +108,18 @@ class ClassificationNet(Network):
         """
 
         # Note that last layer has no activation
-        cache_affine = self.cache['affine' + str(self.num_layer)]
+        cache_affine = self.cache["affine" + str(self.num_layer)]
         dh, dW, db = affine_backward(dy, cache_affine)
-        self.grads['W' + str(self.num_layer)] = \
-            dW + 2 * self.reg_strength * self.params['W' + str(self.num_layer)]
-        self.grads['b' + str(self.num_layer)] = db
+        self.grads["W" + str(self.num_layer)] = (
+            dW + 2 * self.reg_strength * self.params["W" + str(self.num_layer)]
+        )
+        self.grads["b" + str(self.num_layer)] = db
 
         # The rest sandwich layers
         for i in range(self.num_layer - 2, -1, -1):
             # Unpack cache
-            cache_sigmoid = self.cache['sigmoid' + str(i + 1)]
-            cache_affine = self.cache['affine' + str(i + 1)]
+            cache_sigmoid = self.cache["sigmoid" + str(i + 1)]
+            cache_affine = self.cache["affine" + str(i + 1)]
 
             # Activation backward
             dh = self.activation.backward(dh, cache_sigmoid)
@@ -110,32 +128,33 @@ class ClassificationNet(Network):
             dh, dW, db = affine_backward(dh, cache_affine)
 
             # Refresh the gradients
-            self.grads['W' + str(i + 1)] = dW + 2 * self.reg_strength * \
-                                           self.params['W' + str(i + 1)]
-            self.grads['b' + str(i + 1)] = db
+            self.grads["W" + str(i + 1)] = (
+                dW + 2 * self.reg_strength * self.params["W" + str(i + 1)]
+            )
+            self.grads["b" + str(i + 1)] = db
 
         return self.grads
 
     def save_model(self):
         self.eval()
-        directory = 'models'
+        directory = "models"
         model = {self.model_name: self}
         if not os.path.exists(directory):
             os.makedirs(directory)
-        pickle.dump(model, open(directory + '/' + self.model_name + '.p', 'wb'))
+        pickle.dump(model, open(directory + "/" + self.model_name + ".p", "wb"))
 
     def get_dataset_prediction(self, loader):
         self.eval()
         scores = []
         labels = []
-        
+
         for batch in loader:
-            X = batch['image']
-            y = batch['label']
+            X = batch["image"]
+            y = batch["label"]
             score = self.forward(X)
             scores.append(score)
             labels.append(y)
-            
+
         scores = np.concatenate(scores, axis=0)
         labels = np.concatenate(labels, axis=0)
 
@@ -143,94 +162,103 @@ class ClassificationNet(Network):
         acc = (labels == preds).mean()
 
         return labels, preds, acc
-    
+
     def eval(self):
         """sets the network in evaluation mode, i.e. only computes forward pass"""
         self.return_grad = False
-        
+
         # Delete unnecessary caches, to mitigate a memory prolbem.
         self.reg = {}
         self.cache = {}
-        
+
     def reset_weights(self):
-        self.params = {'W1':self.std * np.random.randn(self.input_size, self.hidden_size),
-                       'b1': np.zeros(self.hidden_size)}
+        self.params = {
+            "W1": self.std * np.random.randn(self.input_size, self.hidden_size),
+            "b1": np.zeros(self.hidden_size),
+        }
 
         for i in range(self.num_layer - 2):
-            self.params['W' + str(i + 2)] = self.std * np.random.randn(self.hidden_size,
-                                                                  self.hidden_size)
-            self.params['b' + str(i + 2)] = np.zeros(self.hidden_size)
+            self.params["W" + str(i + 2)] = self.std * np.random.randn(
+                self.hidden_size, self.hidden_size
+            )
+            self.params["b" + str(i + 2)] = np.zeros(self.hidden_size)
 
-        self.params['W' + str(self.num_layer)] = self.std * np.random.randn(self.hidden_size,
-                                                                  self.num_classes)
-        self.params['b' + str(self.num_layer)] = np.zeros(self.num_classes)
+        self.params["W" + str(self.num_layer)] = self.std * np.random.randn(
+            self.hidden_size, self.num_classes
+        )
+        self.params["b" + str(self.num_layer)] = np.zeros(self.num_classes)
 
         self.grads = {}
         self.reg = {}
         for i in range(self.num_layer):
-            self.grads['W' + str(i + 1)] = 0.0
-            self.grads['b' + str(i + 1)] = 0.0
-        
+            self.grads["W" + str(i + 1)] = 0.0
+            self.grads["b" + str(i + 1)] = 0.0
 
 
 class MyOwnNetwork(ClassificationNet):
     """
     Your first fully owned network!
-    
+
     You can define any arbitrary network architecture here!
-    
-    As a starting point, you can use the code from ClassificationNet above as 
-    reference or even copy it to MyOwnNetwork, but of course you're also free 
-    to come up with a complete different architecture and add any additional 
+
+    As a starting point, you can use the code from ClassificationNet above as
+    reference or even copy it to MyOwnNetwork, but of course you're also free
+    to come up with a complete different architecture and add any additional
     functionality! (Without renaming class functions though ;))
     """
 
-    def __init__(self, activation=Sigmoid, num_layer=2,
-                 input_size=3 * 32 * 32, hidden_size=100,
-                 std=1e-3, num_classes=10, reg=0, **kwargs):
+    def __init__(
+        self,
+        activation=LeakyRelu,
+        num_layer=3,
+        input_size=3 * 32 * 32,
+        hidden_size=512,
+        std=None,
+        num_classes=10,
+        reg=1e-4,
+        **kwargs,
+    ):
         """
         Your network initialization. For reference and starting points, check
         out the classification network above.
         """
 
-        super().__init__()
+        self._use_he_init = std is None
+        self.std = 1e-3 if std is None else std
+        super().__init__(
+            activation=activation,
+            num_layer=num_layer,
+            input_size=input_size,
+            hidden_size=hidden_size,
+            std=self.std,
+            num_classes=num_classes,
+            reg=reg,
+            **kwargs,
+        )
+        self.model_name = "cifar10_myown_network"
 
-        ########################################################################
-        # TODO:  Your initialization here                                      #
-        ########################################################################
+    def reset_weights(self):
+        self.params = {}
 
+        layer_dims = [self.input_size]
+        layer_dims.extend([self.hidden_size] * (self.num_layer - 1))
+        layer_dims.append(self.num_classes)
 
-        pass
+        for i in range(self.num_layer):
+            fan_in = layer_dims[i]
+            fan_out = layer_dims[i + 1]
+            weight_scale = np.sqrt(2.0 / fan_in) if self._use_he_init else self.std
+            self.params[f"W{i + 1}"] = weight_scale * np.random.randn(fan_in, fan_out)
+            self.params[f"b{i + 1}"] = np.zeros(fan_out)
 
-        ########################################################################
-        #                           END OF YOUR CODE                           #
-        ########################################################################
+        self.grads = {}
+        self.reg = {}
+        for i in range(self.num_layer):
+            self.grads[f"W{i + 1}"] = 0.0
+            self.grads[f"b{i + 1}"] = 0.0
 
     def forward(self, X):
-        out = None
-        ########################################################################
-        # TODO:  Your forward here                                             #
-        ########################################################################
-
-
-        pass
-
-        ########################################################################
-        #                           END OF YOUR CODE                           #
-        ########################################################################
-        return out
+        return super().forward(X)
 
     def backward(self, dy):
-        grads = None
-        ########################################################################
-        # TODO:  Your backward here                                            #
-        ########################################################################
-
-
-        pass
-
-        ########################################################################
-        #                           END OF YOUR CODE                           #
-        ########################################################################
-        return grads
-
+        return super().backward(dy)
